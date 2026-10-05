@@ -89,7 +89,15 @@ main{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:0 18px 30px;a
 .task{padding:8px 6px;border-bottom:1px dashed #36594380}
 .task.done .ttl{text-decoration:line-through;opacity:.55}
 .line{display:flex;gap:8px;align-items:flex-start}
-.ttl{flex:1;cursor:pointer;overflow-wrap:anywhere}
+.ttl{flex:1;min-width:0;cursor:pointer;overflow-wrap:break-word}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:5px 0 0 30px;cursor:pointer}
+.tags.flat{margin-left:0}
+.field{position:relative}
+.field input,.field textarea{padding-right:48px}
+.mic{position:absolute;right:6px;bottom:6px;width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--line);font-size:16px;line-height:1}
+.field textarea+.mic{bottom:12px}
+.mic.on{background:var(--terra);border-color:var(--terra);animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 7px #b25a2c55}}
 .step{display:flex;gap:8px;align-items:center;margin:6px 0 0 4px;font-size:13px;color:var(--mute)}
 .step.on span{text-decoration:line-through;opacity:.6}
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:2px solid var(--sand);border-radius:7px;background:transparent;cursor:pointer;display:grid;place-items:center;margin:0}
@@ -184,7 +192,7 @@ const MONN=['Январь','Февраль','Март','Апрель','Май','
 const DCOL=['#b25a2c','#5f8a3a','#c08a3a','#8a5a34','#3f7a5a','#a8743f','#6e3d22'];
 
 let token=null, data=null, sha=null, pending=[], busy=false;
-let weekStart=null, calMonth=null, openKey=null, noteBox=null;
+let weekStart=null, calMonth=null, openKey=null, noteBox=null, noteWrap=null;
 
 const $=s=>document.querySelector(s);
 function h(tag,attrs,...kids){
@@ -315,8 +323,9 @@ function taskEl(it){
   const el=h('div',{class:'task'+(isDone(it)?' done':'')});
   el.append(h('div',{class:'line'},
     single?h('input',{type:'checkbox',checked:!!s.done[0],onchange:()=>toggle(it.key,0)}):null,
-    h('div',{class:'ttl',onclick:()=>openTask(it.key)},it.src.title),
-    single?chip(steps[0].who):null, noteBadge(it.key)));
+    h('div',{class:'ttl',onclick:()=>openTask(it.key)},it.src.title)));
+  const nb=noteBadge(it.key);
+  if(single||nb) el.append(h('div',{class:'tags'+(single?'':' flat'),onclick:()=>openTask(it.key)},single?chip(steps[0].who):null,nb));
   if(!single) steps.forEach((p,i)=>el.append(h('div',{class:'step'+(s.done[i]?' on':'')},
     h('input',{type:'checkbox',checked:!!s.done[i],onchange:()=>toggle(it.key,i)}),
     h('span',{},p.text||'готово'),chip(p.who))));
@@ -394,12 +403,30 @@ function renderOverdue(){
 function render(){ if(!data) return; renderWeek(); renderCal(); renderHab(); renderUndated(); renderOverdue(); if(openKey) renderTask(); }
 function scrollToDay(d){const e=document.querySelector(`.day[data-d="${d}"]`);if(e) e.scrollIntoView({behavior:'smooth',inline:'start',block:'nearest'});}
 
+/* ---------- запись голосом ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function withMic(target){
+  const box=h('div',{class:'field'},target); if(!SR) return box;
+  let rec=null;
+  const b=h('button',{class:'mic',type:'button',title:'Записать голосом','aria-label':'Записать голосом'},'🎤');
+  b.onclick=()=>{
+    if(rec){rec.stop();return;}
+    rec=new SR(); rec.lang='ru-RU'; rec.interimResults=true; rec.continuous=true;
+    const base=target.value?target.value.replace(/\s*$/,' '):'';
+    rec.onresult=e=>{let all='';for(let i=0;i<e.results.length;i++) all+=e.results[i][0].transcript;target.value=base+all;};
+    rec.onend=()=>{rec=null;b.classList.remove('on');};
+    rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed') alert('Браузер не дал доступ к микрофону. Разрешите микрофон для этой страницы в настройках браузера.');};
+    b.classList.add('on'); rec.start();
+  };
+  box.append(b); return box;
+}
+
 /* ---------- окно задачи ---------- */
 const dlg=$('#dlg');
 dlg.addEventListener('close',()=>{openKey=null;noteBox=null;});
 dlg.addEventListener('click',e=>{if(e.target===dlg) dlg.close();});
 function openTask(key){
-  openKey=key; noteBox=h('textarea',{placeholder:'Корректировка или комментарий для Семёна Петровича…'});
+  openKey=key; noteBox=h('textarea',{placeholder:'Корректировка или комментарий для Семёна Петровича…'}); noteWrap=withMic(noteBox);
   // ответы Семёна Петровича считаем прочитанными, когда Виктория открыла задачу
   if(st(key).notes.some(n=>n.who===HIM&&!n.seen)) mutate(D=>{(D.state[key]?.notes||[]).forEach(n=>{if(n.who===HIM) n.seen=true;});});
   renderTask(); if(!dlg.open) dlg.showModal();
@@ -420,7 +447,7 @@ function renderTask(){
     s.notes.length?s.notes.map(n=>h('div',{class:'note'+(n.who===HIM?' s':'')},
       h('small',{},n.who+' · '+stamp(n.at)+(n.who===ME?(n.seen?' · Семён Петрович прочитал':' · ещё не прочитано'):'')),
       h('p',{},n.text))):h('div',{class:'empty'},'Пока пусто'),
-    noteBox,
+    noteWrap,
     h('div',{class:'rowbtn'},
       h('button',{class:'btn',onclick:()=>{const v=noteBox.value.trim();if(!v) return;noteBox.value='';addNote(it.key,v);}},'Отправить'),
       !it.rec?h('button',{class:'btn ghost',onclick:()=>moveTask(it)},'Перенести'):null,
@@ -474,11 +501,11 @@ function openAdd(date){
   dlg.replaceChildren(h('div',{class:'dlg'},
     h('button',{class:'x',onclick:()=>dlg.close()},'×'),
     h('h2',{},'Новая задача'),
-    h('label',{},'Название'),title,
+    h('label',{},'Название'),withMic(title),
     h('label',{},'Кто делает'),who,
     h('div',{class:'two'},h('div',{},h('label',{},'Дата (пусто — без срока)'),dt),h('div',{},h('label',{},'Повтор'),rep)),
     h('label',{},'Проект'),proj,
-    h('label',{},'Пояснение'),note,
+    h('label',{},'Пояснение'),withMic(note),
     err,h('div',{class:'rowbtn'},h('button',{class:'btn',onclick:save},'Добавить'),h('button',{class:'btn ghost',onclick:()=>dlg.close()},'Отмена'))));
   dlg.showModal(); title.focus();
 }
