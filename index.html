@@ -90,6 +90,7 @@ main{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:0 18px 30px;a
 .task.done .ttl{text-decoration:line-through;opacity:.55}
 .line{display:flex;gap:8px;align-items:flex-start}
 .ttl{flex:1;min-width:0;cursor:pointer;overflow-wrap:break-word}
+.tm{color:var(--gold);font-weight:600}
 .tags{display:flex;gap:6px;flex-wrap:wrap;margin:5px 0 0 30px;cursor:pointer}
 .tags.flat{margin-left:0}
 .field{position:relative}
@@ -323,7 +324,7 @@ function taskEl(it){
   const el=h('div',{class:'task'+(isDone(it)?' done':'')});
   el.append(h('div',{class:'line'},
     single?h('input',{type:'checkbox',checked:!!s.done[0],onchange:()=>toggle(it.key,0)}):null,
-    h('div',{class:'ttl',onclick:()=>openTask(it.key)},it.src.title)));
+    h('div',{class:'ttl',onclick:()=>openTask(it.key)},it.src.time?h('b',{class:'tm'},it.src.time+' '):null,it.src.title)));
   const nb=noteBadge(it.key);
   if(single||nb) el.append(h('div',{class:'tags'+(single?'':' flat'),onclick:()=>openTask(it.key)},single?chip(steps[0].who):null,nb));
   if(!single) steps.forEach((p,i)=>el.append(h('div',{class:'step'+(s.done[i]?' on':'')},
@@ -437,7 +438,7 @@ function renderTask(){
   const box=h('div',{class:'dlg'},
     h('button',{class:'x',onclick:()=>dlg.close()},'×'),
     h('h2',{},src.title),
-    h('div',{class:'meta'},[projName(src.project),it.date?human(it.date):'без срока',it.rec?ruleText(src):null].filter(Boolean).join(' · ')),
+    h('div',{class:'meta'},[projName(src.project),it.date?human(it.date):'без срока',src.time?'в '+src.time:null,it.rec?ruleText(src):null].filter(Boolean).join(' · ')),
     h('div',{class:'sect'},src.steps.length>1?'Шаги':'Выполнение'),
     src.steps.map((p,i)=>h('div',{class:'dstep'},
       h('input',{type:'checkbox',checked:!!s.done[i],onchange:()=>toggle(it.key,i)}),
@@ -479,6 +480,7 @@ function openAdd(date){
   const proj=h('select',{},data.projects.map(p=>h('option',{value:p.id},p.name)));
   const dt=h('input',{type:'date',value:date||''});
   const rep=h('select',{},h('option',{value:''},'Не повторять'),h('option',{value:'daily'},'Каждый день'),h('option',{value:'weekly'},'Каждую неделю в этот день'),h('option',{value:'monthly'},'Каждый месяц в это число'));
+  const tm=h('input',{type:'time'});
   const note=h('textarea',{placeholder:'Пояснение для Семёна Петровича (необязательно)'});
   const err=h('div',{style:'color:#f0a688;min-height:20px;margin-top:8px'});
   const save=()=>{
@@ -490,10 +492,11 @@ function openAdd(date){
     if(rep.value){
       const r={id:uid('r'),title:t,project:proj.value,type:rep.value,from:dt.value,steps};
       if(rep.value==='weekly') r.weekday=wd(dt.value); if(rep.value==='monthly') r.day=parse(dt.value).getDate();
+      if(tm.value) r.time=tm.value;
       key=r.id+'@'+dt.value;
       mutate(D=>{if(!D.rules.some(x=>x.id===r.id)) D.rules.push(r); if(txt) (D.state[key]??={done:{},notes:[]}).notes.push({who:ME,text:txt,at,seen:false});});
     }else{
-      const k={id:uid('t'),title:t,project:proj.value,date:dt.value||null,steps,created:at}; key=k.id;
+      const k={id:uid('t'),title:t,project:proj.value,date:dt.value||null,steps,created:at}; key=k.id; if(tm.value) k.time=tm.value;
       mutate(D=>{if(!D.tasks.some(x=>x.id===k.id)) D.tasks.push(k); if(txt) (D.state[key]??={done:{},notes:[]}).notes.push({who:ME,text:txt,at,seen:false});});
     }
     dlg.close();
@@ -504,7 +507,7 @@ function openAdd(date){
     h('label',{},'Название'),withMic(title),
     h('label',{},'Кто делает'),who,
     h('div',{class:'two'},h('div',{},h('label',{},'Дата (пусто — без срока)'),dt),h('div',{},h('label',{},'Повтор'),rep)),
-    h('label',{},'Проект'),proj,
+    h('div',{class:'two'},h('div',{},h('label',{},'Время начала (необязательно)'),tm),h('div',{},h('label',{},'Проект'),proj)),
     h('label',{},'Пояснение'),withMic(note),
     err,h('div',{class:'rowbtn'},h('button',{class:'btn',onclick:save},'Добавить'),h('button',{class:'btn ghost',onclick:()=>dlg.close()},'Отмена'))));
   dlg.showModal(); title.focus();
