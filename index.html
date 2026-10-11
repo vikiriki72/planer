@@ -513,10 +513,12 @@ function openAdd(date){
 /* ---------- вход ---------- */
 function dropKey(msg){
   try{localStorage.removeItem(KEY);}catch(e){}
-  token=null;data=null;$('#app').hidden=true;$('#setup').hidden=false;$('#setupErr').textContent=msg||'';
+  token=null;data=null;$('#app').hidden=true;$('#setup').hidden=false;keyForm(true);$('#setupErr').textContent=msg||'';
 }
-async function start(t){
+function keyForm(show){for(const s of ['#tok','#tokBtn','label[for=tok]']) $(s).hidden=!show;}
+async function start(t,fromSaved){
   token=t; $('#setupErr').textContent='Проверяю ключ…';
+  try{navigator.storage?.persist?.();}catch(e){}
   try{
     const f=await fetchData(); data=f.d; sha=f.sha;
     try{localStorage.setItem(KEY,t);}catch(e){}
@@ -527,6 +529,14 @@ async function start(t){
   }catch(e){
     token=null;
     $('#setup').hidden=false;
+    if(fromSaved&&!e.auth){
+      // ключ на месте, просто нет связи — форму не показываем, пробуем снова
+      keyForm(false);
+      $('#setupErr').textContent='Нет связи с хранилищем. Ключ сохранён, вводить его заново не нужно — пробую ещё раз…';
+      setTimeout(()=>start(t,true),5000);
+      return;
+    }
+    keyForm(true);
     $('#setupErr').textContent=e.auth?'Ключ не подошёл: проверьте, что он скопирован целиком и не истёк.':'Не получилось связаться с хранилищем. Проверьте интернет и попробуйте ещё раз.';
   }
 }
@@ -543,7 +553,7 @@ setInterval(()=>{if(!document.hidden) refresh();},60000);
 window.addEventListener('beforeunload',e=>{if(pending.length){e.preventDefault();e.returnValue='';}});
 
 let saved=null; try{saved=localStorage.getItem(KEY);}catch(e){}
-if(saved) start(saved); else $('#setup').hidden=false;
+if(saved) start(saved,true); else $('#setup').hidden=false;
 </script>
 </body>
 </html>
