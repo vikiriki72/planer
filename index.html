@@ -96,8 +96,8 @@ main{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:0 18px 30px;a
 .field input,.field textarea{padding-right:48px}
 .mic{position:absolute;right:6px;bottom:6px;width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--line);font-size:16px;line-height:1}
 .field textarea+.mic{bottom:12px}
-.mic.on{background:var(--terra);border-color:var(--terra);animation:pulse 1s infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 7px #b25a2c55}}
+.mic.on{background:#e07a2e;border-color:#f0a35a;animation:pulse .8s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #e07a2ecc;transform:scale(1)}50%{transform:scale(1.14)}100%{box-shadow:0 0 0 16px #e07a2e00;transform:scale(1)}}
 .step{display:flex;gap:8px;align-items:center;margin:6px 0 0 4px;font-size:13px;color:var(--mute)}
 .step.on span{text-decoration:line-through;opacity:.6}
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:2px solid var(--sand);border-radius:7px;background:transparent;cursor:pointer;display:grid;place-items:center;margin:0}
